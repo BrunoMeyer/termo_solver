@@ -69,7 +69,12 @@ def get_word_list():
     return d
 
 
-def termo_solver(n_words=1, encoding='utf8', sol=None):
+def termo_solver(n_words=1,
+  unknown_c = [],
+  not_c = [],
+  known_c = [],
+  known_not_c = []
+):
     wl = get_word_list()
 
     # cd = filter_candidates(
@@ -116,15 +121,51 @@ def termo_solver(n_words=1, encoding='utf8', sol=None):
     # )
 
 
+    # cd = filter_candidates(
+    #     wl,
+    #     unknown_c=['s', 'd', 'i'], #yellow
+    #     not_c = ['p', 'o', 'e', 't', 'f', 'c', 'r', 'h', 'n', 't', 'v'], # black (all)
+    #     known_c=[(4, 'a')], # green at
+    #     known_not_c=[(1, 'i'), (0, 'd'), (3, 'a')], # yellow at (without green)
+    # )
+
     cd = filter_candidates(
         wl,
-        unknown_c=['c'], #yellow
-        not_c = ['p', 'o', 'e', 't', 'r', 'g', 'm', 'z'], # black (all)
-        known_c=[(2, 'i'), (4, 'a')], # green at
-        known_not_c=[(0, 'c'), (1, 'a'), (3, 'i')], # yellow at (without green)
+        unknown_c=unknown_c,
+        not_c=not_c,
+        known_c=known_c,
+        known_not_c=known_not_c
     )
 
     print(cd)
+
+def generate_rules(
+  game_history
+):
+  unknown_c = []
+  not_c = []
+  known_c = []
+  known_not_c = []
+
+  for w, mask in game_history:
+    for i in range(len(w)):
+      c = w[i]
+      mi = mask[i]
+
+      if mi == 'y':
+        unknown_c.append(c)
+        known_not_c.append((i, c))
+      if mi == 'b' and not (c in unknown_c) and (not c in [x[1] for x in known_c]):
+        not_c.append(c)
+      if mi == 'g':
+        known_c.append((i, c))
+          
+  return (
+    unknown_c,
+    not_c,
+    known_c,
+    known_not_c
+  )
 
 def main():
   parser = argparse.ArgumentParser(description='Process some integers.')
@@ -145,8 +186,27 @@ def main():
   parser.set_defaults(silent=False)
   
   args = parser.parse_args()
+  
+  ghist = [
+    # ('poeta', 'bbbby'),
 
-  termo_solver()
+    # ('poeta', ''),
+    # ('mudar', ''),
+    # ('tocar', ''),
+    # ('tosar', ''),
+    # ('armas', ''),
+    # ('irmas', ''),
+  ]
+
+
+  while len(ghist) == 0 or ghist[-1][1] != 'ggggg':
+    guess_w = input("Word guess: ")
+    mask = input("Answer mask: ")
+
+    ghist.append((guess_w, mask))
+    unknown_c, not_c, known_c, known_not_c = generate_rules(ghist)
+    termo_solver(1, unknown_c=unknown_c, not_c=not_c, known_c=known_c, known_not_c=known_not_c)
+    # print(unknown_c, not_c, known_c, known_not_c)
 
 if __name__ == "__main__":
     main()
