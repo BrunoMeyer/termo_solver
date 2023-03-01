@@ -59,6 +59,28 @@ def filter_candidates(wl, unknown_c=[], known_c=[], known_not_c=[], not_c=[]):
     
     return candidates
 
+
+def order_candidates(wl, candidates):
+  a = list(''.join(candidates))
+  unique, counts = np.unique(a, return_counts=True)
+  converted_partial_score = {
+    x:y
+    for x,y in zip(unique,counts)
+  }
+  # print(converted_partial_score)
+  def get_element_score(x):
+    s = 0
+    for c in set(x):
+      if c in converted_partial_score:
+        s += converted_partial_score[c]
+
+    return s
+      
+  count_sum_order = sorted(candidates, key=get_element_score)
+
+  # print([get_element_score(x) for x in count_sum_order])
+  return count_sum_order
+
 def get_word_list():
     # with open('br-latin1.txt', 'r') as f:
     with open('br-utf8.txt', 'r') as f:
@@ -69,11 +91,13 @@ def get_word_list():
     return d
 
 
-def termo_solver(n_words=1,
-  unknown_c = [],
-  not_c = [],
-  known_c = [],
-  known_not_c = []
+def termo_solver(
+  # n_words=1,
+  # unknown_c = [],
+  # not_c = [],
+  # known_c = [],
+  # known_not_c = []
+  restraint_list
 ):
     wl = get_word_list()
 
@@ -129,43 +153,56 @@ def termo_solver(n_words=1,
     #     known_not_c=[(1, 'i'), (0, 'd'), (3, 'a')], # yellow at (without green)
     # )
 
-    cd = filter_candidates(
-        wl,
-        unknown_c=unknown_c,
-        not_c=not_c,
-        known_c=known_c,
-        known_not_c=known_not_c
-    )
+    
+    cd_list = []
+    for unknown_c, not_c, known_c, known_not_c in restraint_list:
+      cd = filter_candidates(
+          wl,
+          unknown_c=unknown_c,
+          not_c=not_c,
+          known_c=known_c,
+          known_not_c=known_not_c
+      )
 
-    print(cd)
+      cd = order_candidates(wl, cd)
+      cd_list.append(cd)
+    
+      # print(cd)
+    
+    return cd_list
 
 def generate_rules(
-  game_history
+  game_list
 ):
-  unknown_c = []
-  not_c = []
-  known_c = []
-  known_not_c = []
 
-  for w, mask in game_history:
-    for i in range(len(w)):
-      c = w[i]
-      mi = mask[i]
+  ret_list = []
 
-      if mi == 'y':
-        unknown_c.append(c)
-        known_not_c.append((i, c))
-      if mi == 'b' and not (c in unknown_c) and (not c in [x[1] for x in known_c]):
-        not_c.append(c)
-      if mi == 'g':
-        known_c.append((i, c))
+  for game_history in game_list:
+    unknown_c = []
+    not_c = []
+    known_c = []
+    known_not_c = []
+    for w, mask in game_history:
+      for i in range(len(w)):
+        c = w[i]
+        mi = mask[i]
+
+        if mi == 'y':
+          unknown_c.append(c)
+          known_not_c.append((i, c))
+        if mi == 'b' and not (c in unknown_c) and (not c in [x[1] for x in known_c]):
+          not_c.append(c)
+        if mi == 'g':
+          known_c.append((i, c))
           
-  return (
-    unknown_c,
-    not_c,
-    known_c,
-    known_not_c
-  )
+    ret_list.append((
+      unknown_c,
+      not_c,
+      known_c,
+      known_not_c
+    ))
+  
+  return ret_list
 
 def main():
   parser = argparse.ArgumentParser(description='Process some integers.')
@@ -182,31 +219,59 @@ def main():
 #   parser.add_argument('-t', '--type', dest='type', type=str,
 #                       required=False, choices=['type1', 'type2', 'type3', 'type4'], default='type1')
 
+  parser.add_argument('-n', '--n_words', dest='n_words', type=int,
+                      required=False, default=1)
   parser.set_defaults(list=[])    
   parser.set_defaults(silent=False)
   
   args = parser.parse_args()
   
-  ghist = [
-    # ('poeta', 'bbbby'),
+  # ghist = [
+  #   # ('poeta', 'bbbby'),
 
-    # ('poeta', ''),
-    # ('mudar', ''),
-    # ('tocar', ''),
-    # ('tosar', ''),
-    # ('armas', ''),
-    # ('irmas', ''),
-  ]
+  #   # ('poeta', ''),
+  #   # ('mudar', ''),
+  #   # ('tocar', ''),
+  #   # ('tosar', ''),
+  #   # ('armas', ''),
+  #   # ('irmas', ''),
+  # ]
+
+  ghist = [[] for i in range(args.n_words)]
 
 
-  while len(ghist) == 0 or ghist[-1][1] != 'ggggg':
-    guess_w = input("Word guess: ")
-    mask = input("Answer mask: ")
+  def check_win(games):
+    if len(games[0]) == 0:
+      return True
+    
+    for hist in games:
+      if(hist[-1][1] != 'ggggg'):
+        return True
+    
+    return False
+  
+  # while len(ghist) == 0 or ghist[-1][1] != 'ggggg':
+  while check_win(ghist):
+        
+    # guess_list = []
+    # mask_list = []
+    guess_w = input("Word guess for word: ")
+    for i in range(args.n_words):
+      mask = input("Answer mask for word {}: ".format(i+1))
+      # guess_list.append(guess_w)
+      # mask_list.append(mask)
+      ghist[i].append((guess_w, mask))
+    
+    restraint_list = generate_rules(ghist)
 
-    ghist.append((guess_w, mask))
-    unknown_c, not_c, known_c, known_not_c = generate_rules(ghist)
-    termo_solver(1, unknown_c=unknown_c, not_c=not_c, known_c=known_c, known_not_c=known_not_c)
+    # candidates = termo_solver(1, unknown_c=unknown_c, not_c=not_c, known_c=known_c, known_not_c=known_not_c)
+    candidates_list = termo_solver(restraint_list)
+    # candidates = order_candidates(wl, candidates)
     # print(unknown_c, not_c, known_c, known_not_c)
+    for candidate in candidates_list:
+      print("\n\n---\n\n")
+      print(candidate)
+      # print("\n\n---\n\n")
 
 if __name__ == "__main__":
     main()
