@@ -167,7 +167,12 @@ def termo_solver(
       cd = order_candidates(wl, cd)
       cd_list.append(cd)
     
-      # print(cd)
+    merge_cd = []
+    for cd in cd_list:
+      merge_cd += cd
+    
+    merge_cd = order_candidates(wl, merge_cd)
+    cd_list.append(merge_cd)
     
     return cd_list
 
